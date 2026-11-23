@@ -1,0 +1,53 @@
+# The website, https://veranda-x16.github.io (DECISIONS V139): built by
+# veranda's tools/site/build.py (Python, standard library) from the
+# veranda repository's main (the manual, the screenshots) and the
+# releases (GitHub's API, read with this workflow's token), then deployed
+# to GitHub Pages. When: veranda's release workflow asks (a
+# repository_dispatch "veranda-release", if it has SITE_DISPATCH_TOKEN),
+# every day at 04:41 UTC (so a release shows within a day without the
+# token), a push here, or by hand.
+name: pages
+on:
+  repository_dispatch:
+    types: [veranda-release]
+  schedule:
+    - cron: '41 4 * * *'
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: veranda-x16/veranda
+          ref: main
+          path: veranda
+      - name: The site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I -B veranda/tools/site/build.py --repo veranda-x16/veranda --api --out site
+          ls -la site
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1
